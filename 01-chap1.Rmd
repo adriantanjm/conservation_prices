@@ -1,0 +1,197 @@
+# Exploratory Data Analysis on Successful Tender Prices
+
+In this section, we shall conduct an exploratory view into the data set to look at the successful tender prices. The dataset provided by the Urban Redevelopment Authority has already accounted for the inflation rate, which shows the real value of the successful tender prices across the period of study.  
+
+```{r message=FALSE, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(psych)
+library(ggthemes)
+library(forcats)
+library(kableExtra)
+library(knitr)
+```
+
+```{r dataset, include=FALSE}
+conservation <- read.csv(here::here("data/conservation-sites-sold-by-ura.csv"))
+```
+
+```{r wrangling, include=FALSE}
+conservation$location_code <- as.factor(conservation$location_code)
+conservation$type_of_devt_allowed <- as.factor(conservation$type_of_devt_allowed)
+levels(conservation$location_code)
+levels(conservation$location_code)[levels(conservation$location_code)=="Museum / Rochor"] <- "Rochor"
+levels(conservation$location_code)[levels(conservation$location_code)=="Rocher"] <- "Rochor"
+levels(conservation$location_code)[levels(conservation$location_code)=="Museum"] <- "Outram"
+levels(conservation$location_code)[levels(conservation$location_code)=="Singapore River"] <- "River Valley"
+levels(conservation$no_of_storeys)[levels(conservation$no_of_storeys)=="Varies from 2 to 5 storeys"] <- "2"
+levels(conservation$no_of_storeys)[levels(conservation$no_of_storeys)=="na"] <- "1"
+levels(conservation$no_of_storeys)[levels(conservation$no_of_storeys)=="42403"] <- "4"
+levels(conservation$no_of_storeys)[levels(conservation$no_of_storeys)=="2 storeys with 2 base-ments"] <- "2"
+levels(conservation$no_of_storeys)[levels(conservation$no_of_storeys)=="2 / A"] <- "2"
+levels(conservation$no_of_storeys)[levels(conservation$no_of_storeys)=="3-Feb"] <- "3"
+conservation$no_of_storeys <- as.numeric(levels(conservation$no_of_storeys))[conservation$no_of_storeys]
+class(conservation$no_of_storeys) 
+```
+
+## Central Tendency of Successful Tender Price
+
+```{r}
+summary(conservation$price_psm_per_site_area) 
+
+conservation %>% 
+  select(location, price_psm_per_site_area) %>%
+  filter(price_psm_per_site_area == 1108)
+
+conservation %>% 
+  select(location, price_psm_per_site_area) %>%
+  filter(price_psm_per_site_area == 122080)
+```
+
+As we can see above the mean successful tender prices per sqm for conservation sites is \$6508. The cheapest site in terms of its price per sqm is located in Chinatown, 36-38 Duxton Road and 41-43 Duxton Road. The cheapest price per sqm is \$1108. Surprisingly, the most expensive site in terms of price per sqm is also located in Chinatown, next to the cheapest conservation site. It is at 44 Duxton Road. 
+
+```{r}
+loc_stp <- conservation %>%
+  group_by(location_code) %>%
+  select(location_code, price_psm_per_site_area)
+
+options(scipen=999)
+
+loc_stp %>% 
+  group_by(location_code) %>%
+  summarise(mean_price = mean(price_psm_per_site_area))
+
+loc_stp %>%
+  ggplot(aes(x=location_code, y=price_psm_per_site_area)) + 
+    geom_boxplot(color="#808080", fill="#808080", alpha=0.2) +
+  geom_jitter(color="#808080", fill="#808080", alpha=0.2) +
+  ylim(0, 60000) + 
+  labs(title = "Boxplot of Successful Tender Prices per SQM", x="Conservation Town", y="Price", caption="Outlier at $122080 at Chinatown excluded") +  theme_bw()
+```
+
+As we can see above, the conservation area with the highest mean price per sqm appears to be Little India, which is \$8648.39. However, Little India has relatively dispersed observation across the boxplot. It suggests that the prices there are varied, which leads to a high mean price per SQM of Little India. Furthermore, there are a lot of outliers observed, which pulled up the mean price per SQM. 
+
+Furthermore, Outram park appears to have the lowest mean price per sqm is Outram of \$4015.27. However, when we refer to the boxplot above, we see that there is not much observations in Outram Park. Thus, it is not conclusive to say that Outram Park has the lowest mean price per SQM as compared to other conservation town. 
+
+The boxplot above also shows that many of Chinatown's tender prices tend to be the most varied. In fact, there are many outliers which is not captured in the boxplot. The outliers may have inflated the mean price per SQM of Chinatown. 
+
+The mean differences should be examine with caution. Instead, we could use the median as it is a better indicator of mean tendency in the observation above. In the table below, we can see that the conservation site with the highest median price per SQM is River Valley, which is \$7714.70 while the lowest median price per SQM is Outram, which is \$3109.64. 
+
+```{r}
+loc_stp %>% 
+  group_by(location_code) %>%
+  summarise(Median = median(price_psm_per_site_area)) %>%
+  arrange(Median)
+```
+
+## Commodified Conservation Town 
+
+Having establish the central tendency prices let's look at the number of conservation sites purveyed in each location so we can see which sites are popularly marketed by URA as commodities of culture. 
+
+```{r}
+con_count <- conservation %>% 
+  mutate(count = 1) %>%
+  group_by(location_code) %>%
+  summarise(count = sum(count))
+
+con_count %>%
+  mutate(name = fct_reorder(location_code, count)) %>%
+  ggplot(aes(x=name, y=count)) +
+  geom_bar(stat="identity", fill="#f68060", alpha=.6, width=.4) +
+    coord_flip() +
+    xlab("Conservation Site") +
+    ylab("Number of Sites Purveyed") +
+    labs(title = "Bar chart showing number of Sites auctioned in different towns") + 
+    theme_bw()
+```
+
+According to the graph above, we can see that town that is being commodified and sold most is Chinatown. On the other hand, the town that is least purveyed by the URA is Outram. However, it is important to note that Outram is within the vicinity of Chinatown. Thus, we can technically factor in Outram into Chinatown although this would not make any difference in determining which conservation site has the most number of sites purveyed. 
+
+## Slated usages of these sites
+
+Another important variable to explore is the slated usage of these sites. The existing dataset provides 3 main slated purposes of the conservation sites. They are namely: `Commercial`, `Residential`, and `Mixed-Use`. Tenderers have to adhere to the slated purposes of these sides as part of the successful tenderer clause. 
+
+```{r purpose, message=FALSE, warning=FALSE, include=FALSE}
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="1st storey for commercial, upper storeys for residential"] <- "Mixed Use"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Commercial (1st sty - retail, Upper Sty - Office)"] <- "Commercial"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Commercial use"] <- "Commercial"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Commercial or Commercial & Residential or Institutional"] <- "Mixed Use"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Commercial(1st storey ? retail/shop/eating use)"] <- "Commercial"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Commercial/ Residential"] <- "Mixed Use"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Commercial/ Residential/ Association"] <- "Mixed Use"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Commercial/ residential/ insitutional uses with office use allowed on the 1st storey"] <- "Mixed Use"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Commercial/ residential/ institutional"] <- "Mixed Use"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Commercial/ Residential/ Institutional"] <- "Mixed Use"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Conservation / Commercial Use"] <- "Commercial"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Cultural, arts, recreational, eating facilities & shopping"] <- "Commercial"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Eating Establishment"] <- "Commercial"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="No. 61 ? Shophouse development/commercial use No 62 ? Conservation/commercial use"] <- "Commercial"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Residential use with commercial/ residential/ institutional uses allowed on the 1st storey only"] <- "Mixed Use"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Shopping, entertainment, recreation & cultural"] <- "Commercial"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Shopping/ institutional"] <- "Commercial"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Shops or eating establishment on 1st storey & commercial or residential use on upper storeys"] <- "Mixed Use"
+levels(conservation$type_of_devt_allowed)[levels(conservation$type_of_devt_allowed)=="Residential with 1st storey commercial"] <- "Mixed Use"
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+con_type = conservation %>%
+  select(year_of_launch, type_of_devt_allowed) %>%
+  group_by(year_of_launch, type_of_devt_allowed) %>%
+  mutate(n = 1) %>%
+  group_by(year_of_launch, type_of_devt_allowed) %>%
+  summarise(count = sum(n))
+
+con_type_years <- con_type %>%
+  select(year_of_launch, type_of_devt_allowed, count) %>% 
+  group_by(year_of_launch, type_of_devt_allowed) %>% 
+  summarise(count = sum(count))
+
+names(con_type_years)[names(con_type_years) == "year_of_launch"] <- "Year"
+names(con_type_years)[names(con_type_years) == "type_of_devt_allowed"] <- "Slated Purpose"
+
+summed = con_type %>% 
+  group_by(year_of_launch) %>% 
+  summarise(Count = sum(count))
+
+names(summed)[names(summed) == "year_of_launch"] <- "Year"
+names(summed)[names(summed) == "Count"] <- "Number of Properties"
+
+con_type_overall <- con_type_years %>%
+  group_by(`Slated Purpose`) %>%
+  summarise(Total = sum(count))
+
+summ_loc_stp <- loc_stp %>% 
+  group_by(location_code) %>%
+  summarise(Average = mean(price_psm_per_site_area))
+
+names(summ_loc_stp)[names(summ_loc_stp) == "location_code"] <- "Conservation Site"
+```
+
+
+```{r Table, echo=FALSE}
+kable(con_type_overall, booktabs = T) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "center") %>%
+  footnote(general = "Summary of Types of Slated Purposes for Conservation Sites", 
+           general_title = "Table 1", title_format =c("italic", "underline"))
+```
+
+```{r}
+con_type_overall %>% 
+  ggplot(aes(x=`Slated Purpose`, y=Total)) + 
+  geom_bar(stat="identity", fill="#39ff14", alpha=.6, width=.2) +
+  coord_flip() +
+  xlab("Slated Purpose")+
+  labs(title = "Comparison of Slated Purposes of Conservation Sites")+
+  theme_bw()
+```
+
+As we can see above, the majority of the conservation sites are slated as mixed-use purpose followed by commercial use. Mixed-use refers to a blend of both commercial and residential use, akin to the SoHo (Small Office, Home Office) Apartment concept. Only a 21 conservation sites are slated for residential uses. This suggests that conservation sites are largely marketed as commodities for commercial uses than residential uses. 
+
+## Conclusion
+
+In conclusion, it is difficult to determine which town has the highest mean price per SQM accurately as there is a lot of variation in the observations. That said, this chapter also showed us that the conservation site that has the most number of sites purveyed is Chinatown. Lastly, most of the conservation site is slated for mixed-use and commercial purposes. 
+
+```{r include=FALSE}
+saveRDS(conservation, here::here("data/conservation.RDS"))
+```

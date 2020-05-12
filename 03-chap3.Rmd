@@ -1,0 +1,112 @@
+# Random Forest Regression Analysis
+
+In this chapter, I construct a random forest regression analysis to determine the variables that affect the successful tender price per SQM of the conservation sites. 
+
+```{r include=FALSE}
+conservation <- readRDS(here::here("data/conservation.RDS"))
+```
+
+```{r include=FALSE}
+library(forecast)
+library(ggplot2)
+library(tidyverse)
+library(kableExtra)
+library(knitr)
+library(tree)
+library(randomForest)
+library(randomForestExplainer)
+library(caret)
+library(broom)
+```
+
+## Decision Tree 
+
+To begin with, let's build a decision tree to examine what how the prices (`price_psm_per_site_area`) are being influenced by other factors. 
+```{r echo=TRUE}
+set.seed(123)
+
+df_sample_rf <- conservation %>%
+  sample_n(100)
+
+# Creating a fixed sample for training/testing
+sample <- sample(c(TRUE, FALSE), nrow(df_sample_rf), replace = T, prob = c(0.7,0.3))
+
+sample_train_rf <- df_sample_rf %>%
+  filter(sample)
+
+sample_test_rf <- df_sample_rf %>% 
+  filter(!sample)
+
+
+# train the tree on the training set
+tr <- tree(price_psm_per_site_area ~ type_of_devt_allowed + location_code + site_area + no_of_storeys,
+           data = sample_train_rf)
+
+plot(tr)
+text(tr)
+```
+
+In a single sampled decision tree above, we can see how various factors influenced the tender price per sqm of conservation sites. The price per sqm is the "leaves" of the tree, at the tail end of the branches. From this sampled decision tree, we see that the variable `no_of_storeys` is located at the highest section of the decision tree above. This suggests that the number of storeys of the conservation site has the most influence on its pricing in this sample. However, using one sample is not enough to determine how the entire observations would look like, thus we shall employ random forest to test whether the number of storeys is indeed the most influential variable as discussed. 
+
+Having a preliminary sense of how a sample may look like, let's construct a random forest to gather more certainty in explaining the variables influencing the tender price per sqm of conservation sites.
+
+## Building a Random Forest
+
+```{r}
+price_rf <- randomForest(
+  price_psm_per_site_area ~ type_of_devt_allowed + location_code + site_area + no_of_storeys,
+  data = sample_train_rf, ntree = 123)
+
+print(price_rf)
+
+print(importance(price_rf, type = 2))
+
+plot(price_rf)
+
+```
+
+```{r}
+sample_test_rf <- sample_test_rf %>%
+  add_column(pred = predict(price_rf, newdata = sample_test_rf))
+```
+
+```{r}
+rmse_rf <- sqrt(mean((sample_test_rf$price_psm_per_site_area - sample_test_rf$pred)^2))
+
+price_ols <- lm(
+  price_psm_per_site_area ~ type_of_devt_allowed + location_code + site_area + no_of_storeys,
+  data = sample_train_rf)
+sample_test_rf <- augment(price_ols, newdata = sample_test_rf)
+rmse_lm <- sqrt(mean((sample_test_rf$price_psm_per_site_area - sample_test_rf$.fitted)^2))
+
+c(list(rmse_rf = rmse_rf, rmse_lm = rmse_lm))
+```
+
+The RMSE of random forests is indeed lower than that of a simple linear regression. This indicates that random forests performance was better at predicting the successful tender prices of conservation sites than the simple linear regression.
+
+```{r echo=TRUE}
+price_rf <- randomForest(
+  price_psm_per_site_area ~ type_of_devt_allowed + location_code + site_area + no_of_storeys,
+  data = sample_train_rf, ntree = 123, localImp = TRUE)
+```
+
+```{r}
+mdd <- min_depth_distribution(price_rf)
+```
+
+```{r}
+plot_min_depth_distribution(mdd)
+```
+
+The importance of a variable in a random forest model can be determined by checking the minimum depth of the variable in each single decision tree. The earlier a variable is placed in the tree, the more influential it is since it determines where the decision will branch earlier on. Here, we can see that the more influential variables in determining the `price_psm_per_site_area` are `site_area` and `type_of_devt_allowed`. Thus, we can say that both size of a conservation sit and its slated purposes are equally influential, but more influential than the location and area of the site, in influencing the price of the tender sites.
+
+## Analysis from Random Forest
+
+The size and the slated purpose of the conservation site are important factors influencing the final price. The size of the conservation site denotes the amount of spaces available for use. Especially since Singapore is a land constrained city-state, land is a valuable resource. The larger the conservation site, the higher the price of the conservation site will be. Therefore, the size of the conservation site will likely yield a positive linear correlation with the tender price of the conservation site. 
+
+Furthermore, the slated purposes matter because it determines the kinds of bidders participating in the auction. If the slated purpose is for commercial use, chances are, we can expect more companies and entrepreneurs who are wealthier, bidding on these sites. Conversely, if we slated the space for residential use, we can expect lower bidding prices. The reason is that there are probably better newly built houses with more ammenities available out there, than conservation sites. Therefore, the slated purposes can be deterministic of the kinds of bidder of the site, which may then influence the tender prices. 
+
+## Further Research 
+
+Although I did not determine which of the variable is more significantly important than the other in the final price of the tender, it is possible to do so. To determine which of the two is significantly more important than the other, one would have to train a large amount of random forests with an equally large amount of bootstrap samples. Following that, we can obtain the mean minimum depth distribution for each of the 500 runs to compare which of these variables are more influential than the other. Due to time and technical constraints, this is left out of the study. 
+

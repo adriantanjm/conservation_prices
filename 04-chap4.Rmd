@@ -1,0 +1,10 @@
+# Conclusion
+
+In conclusion, from 1987 to 2007, conservation sites in Singapore experienced an overall increase in the tender prices. However, the 1997 financial crisis certainly had an impact on the market of conservation sites in Singapore, leading a steady decline in the prices. Furthermore, despite the inconsistencies in the release of conservation sites for tender, we can see that all of the conservation sites experienced an increase in the pricing trend. In terms of random forest regression analysis, we can see that the more influential variables in affecting the final price per SQM of conservation site are the site area and slated purposes of the sites. 
+
+## Limitations of this research 
+
+In the initial stages of this research, I wanted to employ Geospatial Autocorrelation to the study. However, I find that it was difficult to do so because the conservation sites in Singapore are not entirely linked to one another. For geospatial autocorrelation to work, it presupposes that the conservations sites are neighbours in order for them to influence each other. In our study, this assumption cannot hold because the sites are not neigbhours to one another. For instance, Geylang and Kampong Glam are isolated from the other conservation sites. Therefore, it is difficult to conduct spatial autocorrelation to determine how one site influences another's prices. 
+
+Therefore, I had to resort to using random forest to determine the variables affecting the study. To improve the study, I propose that more datasets can be supplemented to engender a richer and more nuanced analyses. For instance, we can include data from perception studies of cultural sites in the form of a likert scale rating and human traffic data to show us how location actually mattered in the final analysis. 
+

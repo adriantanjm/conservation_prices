@@ -1,0 +1,172 @@
+# Time Series Analysis of Conservation Sites 
+
+Building on the earlier exploratory data analysis, this chapter conducts a time series analysis of the different variables in the data set on tender of conservation sites in Singapore. 
+
+```{r include=FALSE}
+conservation <- readRDS(here::here("data/conservation.RDS"))
+library(forecast)
+library(ggplot2)
+library(tidyverse)
+library(kableExtra)
+library(knitr)
+```
+
+## Successful tender prices per sqm 
+```{r include=FALSE}
+con_overall <- conservation %>% 
+  group_by(Year = year_of_launch) %>%
+  summarise(Average = mean(price_psm_per_site_area))
+
+con_overall <- con_overall %>%
+  add_column(ma = ma(con_overall$Average, order = 6))
+```
+
+```{r echo=FALSE}
+con_overall %>%
+  filter(!is.na(ma)) %>%
+  ggplot(aes(x = Year)) +
+  geom_point(aes(y = Average), color = "#000000") +
+  geom_line(aes(y = Average), color = "#6fb5d1") +
+  geom_line(aes(y = ma), color = "orange") + 
+  labs(title = "Moving Average of Successful Tender Price Per SQM over the years", y="Successful Tender Price Per SQM", x="Year") + 
+  theme_bw()
+```
+
+Taking the successful tender prices of all conservation sites in Singapore from 1987 to 2007, we see that the there is an overall increase in successful tender prices per SQM. This can be seen by the moving average, represented by the orange line in the plot above. The moving average shows that the successful mean tender prices per sqm has been increasing consistently until 1998 which was the year after the Asian Financial Crisis. Following that, the prices began to decline. It is possible to deduce that the Financial Crisis has led to the fall in demand for conservation sites. 
+
+```{r mean, message=FALSE, warning=FALSE, include=FALSE, paged.print=TRUE}
+loc_stp <- conservation %>%
+  group_by(location_code) %>%
+  select(location_code, price_psm_per_site_area)
+
+summ_loc_stp <- loc_stp %>% 
+  group_by(location_code) %>%
+  summarise(Average = mean(price_psm_per_site_area))
+
+names(summ_loc_stp)[names(summ_loc_stp) == "location_code"] <- "Conservation Site"
+```
+
+```{r echo=FALSE}
+kable(summ_loc_stp, booktabs = T) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "center") %>%
+  footnote(general = "Summary of average tender price per sqm of conservation sites", 
+           general_title = "Table 2", title_format =c("italic", "underline"))
+```
+
+```{r include=FALSE}
+con_price <- conservation %>% 
+  group_by(location_code, year_of_launch) %>%
+  filter(!location_code == "River Valley") %>%
+  summarise(price = mean(price_psm_per_site_area))
+```
+
+```{r echo=FALSE}
+con_price %>%
+  ggplot() + 
+  geom_line(aes(x=year_of_launch, y=price, color=location_code)) +
+  labs(title = "Trend of successful tender price per SQM for respective conservation site", y="Year", x="Price") + theme_bw()
+```
+
+The graph above does not seem to tell us enough information to conduct a comprehensive time-series data analysis of tender prices per SQM for each site. Therefore, it is important that we conduct specific site time-series analysis below to observe the trend. We will only be examining 4 main sites as some of the sites are not released consecutively or they only released for one time period. 
+
+### Chinatown 
+
+```{r Chinatown Moving Average, echo=FALSE}
+chinatown <- conservation %>% 
+  filter(location_code == "Chinatown") %>%
+  group_by(location_code, year_of_launch) %>%
+  summarise(price = mean(price_psm_per_site_area)) 
+
+yearly_price <- chinatown %>%
+  group_by(year_of_launch)
+
+yearly_price <- yearly_price %>%
+  add_column(ma = ma(yearly_price$price, order = 6))
+
+yearly_price %>%
+  filter(!is.na(ma)) %>%
+  ggplot(aes(year_of_launch, price, ma, group = 1)) +
+  geom_point(aes(y = price), color = "#000000") +
+  geom_line(aes(y = price), color = "#6fb5d1") +
+  geom_line(aes(y = ma), color = "red") +
+  labs(title = "Trend for Mean Successful Tender Price Per SQM", subtitle = "Conservation Site: Chinatown", y = "Price", x = "Year") +
+  theme_bw()
+```
+
+In the case of Chinatown, we can see that the tender for conservation sites there lasted from 1990 to 1994. The pink line represents the moving average, which suggests that there was an increasing trend of mean successful tender price per SQM for conservation sites in Singapore. In fact, the trend was accelerating smoothly from 1990 to 1993, and then it decelerated from 1993 to 1994. 
+
+### Little India
+```{r Little India Moving Average, echo=FALSE}
+lil_india <- conservation %>% 
+  filter(location_code == "Little India") %>%
+  group_by(location_code, year_of_launch) %>%
+  summarise(price = mean(price_psm_per_site_area)) 
+
+yearly_price_lil_india <- lil_india %>%
+  group_by(year_of_launch)
+
+yearly_price_lil_india <- yearly_price_lil_india %>%
+  add_column(ma = ma(yearly_price_lil_india$price, order = 2))
+
+yearly_price_lil_india %>%
+  ggplot(aes(year_of_launch, price, group = 1)) +
+  geom_point(aes(y = price), color = "#000000") +
+  geom_line(aes(y = price), color = "#6fb5d1") +
+  labs(title = "Trend for Mean Successful Tender Price Per SQM", subtitle = "Conservation Site: Little India", y = "Price", x = "Year") + 
+  theme_bw()
+```
+In the case of Little India, we can see that the tender for conservation sites there lasted from 1992 to 1995. The trend appears to be an initial decline in the mean tender price per sqm from 1992 to 1993, and then it increased from 1993 to 1995.
+
+### Rochor
+```{r Rochor Moving Average, echo=FALSE}
+rochor <- conservation %>% 
+  filter(location_code == "Rochor") %>%
+  group_by(location_code, year_of_launch) %>%
+  summarise(price = mean(price_psm_per_site_area)) 
+
+yearly_price_rochor <- rochor %>%
+  group_by(year_of_launch)
+
+
+yearly_price_rochor %>%
+  ggplot(aes(year_of_launch, price, group = 1)) +
+  geom_point(aes(y = price), color = "#000000") +
+  geom_line(aes(y = price), color = "#6fb5d1") +
+  labs(title = "Trend for Mean Successful Tender Price Per SQM", subtitle = "Conservation Site: Rochor", y = "Price", x = "Year") + 
+  theme_bw()
+```
+
+In the case of Rochor, we can see that the tender for conservation sites there lasted from 1994 to 1999. The trend appears to be an initial decline in the mean tender price per sqm from 1994 to 1995, and then it increased from 1995 to 1999.  
+
+### Kampong Glam
+```{r KG Moving Average, echo=FALSE}
+kg <- conservation %>% 
+  filter(location_code == "Kg Glam") %>%
+  group_by(location_code, year_of_launch) %>%
+  summarise(price = mean(price_psm_per_site_area)) 
+
+yearly_price_kg <- kg %>%
+  group_by(year_of_launch)
+
+yearly_price_kg <- yearly_price_kg %>%
+  add_column(ma = ma(yearly_price_kg$price, order = 2))
+
+yearly_price_kg %>%
+  filter(!is.na(ma)) %>%
+  ggplot(aes(year_of_launch, price, ma, group = 1)) +
+  geom_point(aes(y = price), color = "#000000") +
+  geom_line(aes(y = price), color = "#6fb5d1") +
+  geom_line(aes(y = ma), color = "red") +
+  labs(title = "Trend for Mean Successful Tender Price Per SQM", subtitle = "Conservation Site: Kampong Glam", y = "Tender Price", x = "Year") +
+  theme_bw()
+```
+
+In the case of Kampong Glam, we can see that the tender for conservation sites there lasted from 2002 to 2006. The moving average is represented by the pink line. The trend appears to be an initial decline in the mean tender price per sqm from 2002 to 2003, and then it plateaued from 2003 to 2005 before increasing again from 2005 to 2006. 
+
+### Conclusion
+
+On a whole, we can see that the successful tende price per SQM of auctioned conservation sites in Singapore experienced a growth. That said, they appear to be uneven in their growth trajectory. Out of the four sites we studied above, only Chinatown experienced a consistent upward trend in its successful tender price per sqm. The three remaining sites appear to experience a decline first, before increasing. Therefore, we can say that conservation sites in Chinatown has experienced a consistently growing popularity among bidders.
+
+```{r include=FALSE}
+saveRDS(conservation, here::here("data/conservation.RDS"))
+```
